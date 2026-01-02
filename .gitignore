@@ -20,6 +20,7 @@ replay_pid*
 .DS_Store
 .AppleDouble
 .LSOverride
+/target/
 
 # Temporary files
 *.tmp
