@@ -7,6 +7,7 @@ import com.greivin.txapi.dto.TransactionRequest;
 import com.greivin.txapi.dto.TransactionResponse;
 import com.greivin.txapi.repository.AccountRepository;
 import com.greivin.txapi.repository.TransactionRepository;
+import com.greivin.txapi.exception.AccountNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -74,7 +75,6 @@ public class TransactionService {
 
         if (account.getBalanceCents() < req.amountCents()) {
             throw new IllegalArgumentException("Insufficient funds");
-            // mejor luego: InsufficientFundsException
         }
 
         Transaction tx = new Transaction(

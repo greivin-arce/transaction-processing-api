@@ -4,6 +4,7 @@ import com.greivin.txapi.domain.Account;
 import com.greivin.txapi.dto.AccountResponse;
 import com.greivin.txapi.dto.CreateAccountRequest;
 import com.greivin.txapi.repository.AccountRepository;
+import com.greivin.txapi.exception.AccountNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
