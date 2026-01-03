@@ -28,19 +28,34 @@ public class TransactionService {
         Account account = accountRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new AccountNotFoundException(externalId));
 
-        account.setBalanceCents(account.getBalanceCents() + req.amountCents());
+        String key = normalizeKey(req.idempotencyKey());
+        if (key != null) {
+            var existing = transactionRepository.findByAccount_IdAndIdempotencyKey(account.getId(), key);
+            if (existing.isPresent()) {
+                return TransactionResponse.from(existing.get(), account);
+            }
+        }
 
         Transaction tx = new Transaction(
                 account,
                 TransactionType.DEPOSIT,
                 req.amountCents(),
-                req.idempotencyKey(),
+                key,
                 req.description());
+
+        account.setBalanceCents(account.getBalanceCents() + req.amountCents());
 
         transactionRepository.save(tx);
         accountRepository.save(account);
 
-        return TransactionResponse.from(tx);
+        return TransactionResponse.from(tx, account);
+    }
+
+    private String normalizeKey(String key) {
+        if (key == null)
+            return null;
+        String trimmed = key.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     @Transactional
@@ -49,22 +64,31 @@ public class TransactionService {
         Account account = accountRepository.findByExternalId(externalId)
                 .orElseThrow(() -> new AccountNotFoundException(externalId));
 
-        if (account.getBalanceCents() < req.amountCents()) {
-            throw new IllegalStateException("Insufficient balance");
+        String key = normalizeKey(req.idempotencyKey());
+        if (key != null) {
+            var existing = transactionRepository.findByAccount_IdAndIdempotencyKey(account.getId(), key);
+            if (existing.isPresent()) {
+                return TransactionResponse.from(existing.get(), account);
+            }
         }
 
-        account.setBalanceCents(account.getBalanceCents() - req.amountCents());
+        if (account.getBalanceCents() < req.amountCents()) {
+            throw new IllegalArgumentException("Insufficient funds");
+            // mejor luego: InsufficientFundsException
+        }
 
         Transaction tx = new Transaction(
                 account,
                 TransactionType.WITHDRAW,
                 req.amountCents(),
-                req.idempotencyKey(),
+                key,
                 req.description());
+
+        account.setBalanceCents(account.getBalanceCents() - req.amountCents());
 
         transactionRepository.save(tx);
         accountRepository.save(account);
 
-        return TransactionResponse.from(tx);
+        return TransactionResponse.from(tx, account);
     }
 }

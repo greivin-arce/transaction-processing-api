@@ -1,27 +1,26 @@
 package com.greivin.txapi.dto;
 
+import com.greivin.txapi.domain.Account;
 import com.greivin.txapi.domain.Transaction;
-import com.greivin.txapi.domain.enums.TransactionType;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
 
 public record TransactionResponse(
-        UUID id,
-        TransactionType type,
+        String id,
+        String externalId,
+        String type,
         long amountCents,
-        String currency,
-        String description,
-        OffsetDateTime createdAt
+        long balanceCents,
+        String idempotencyKey,
+        String description
 ) {
-    public static TransactionResponse from(Transaction tx) {
+    public static TransactionResponse from(Transaction tx, Account account) {
         return new TransactionResponse(
-                tx.getId(),
-                tx.getType(),
+                tx.getId().toString(),
+                account.getExternalId(),
+                tx.getType().name(),
                 tx.getAmountCents(),
-                tx.getCurrency(),
-                tx.getDescription(),
-                tx.getCreatedAt()
+                account.getBalanceCents(),
+                tx.getIdempotencyKey(),
+                tx.getDescription()
         );
     }
 }
