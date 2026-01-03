@@ -6,6 +6,8 @@ import lombok.Getter;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import com.greivin.txapi.domain.enums.TransactionType;
+
 @Getter
 @Entity
 @Table(name = "transactions")
@@ -20,7 +22,7 @@ public class Transaction {
     private Account account;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(name = "type", nullable = false, length = 20)
     private TransactionType type;
 
     @Column(name = "amount_cents", nullable = false)
@@ -46,8 +48,7 @@ public class Transaction {
             TransactionType type,
             long amountCents,
             String idempotencyKey,
-            String description
-    ) {
+            String description) {
         this.account = account;
         this.type = type;
         this.amountCents = amountCents;
