@@ -7,6 +7,8 @@ import com.greivin.txapi.dto.TransactionRequest;
 import com.greivin.txapi.dto.TransactionResponse;
 import com.greivin.txapi.repository.AccountRepository;
 import com.greivin.txapi.repository.TransactionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.greivin.txapi.exception.AccountNotFoundException;
 import com.greivin.txapi.exception.InsufficientFundsException;
 
@@ -35,9 +37,12 @@ public class TransactionService {
         if (key != null) {
             var existing = transactionRepository.findByAccount_IdAndIdempotencyKey(account.getId(), key);
             if (existing.isPresent()) {
-                return TransactionResponse.from(existing.get(), account);
+                return TransactionResponse.from(existing.get());
             }
         }
+
+        long newBalance = account.getBalanceCents() + req.amountCents();
+        account.setBalanceCents(newBalance);
 
         Transaction tx = new Transaction(
                 account,
@@ -45,13 +50,12 @@ public class TransactionService {
                 req.amountCents(),
                 key,
                 req.description());
-
-        account.setBalanceCents(account.getBalanceCents() + req.amountCents());
+        tx.setBalanceAfterCents(newBalance);
 
         transactionRepository.save(tx);
         accountRepository.save(account);
 
-        return TransactionResponse.from(tx, account);
+        return TransactionResponse.from(tx);
     }
 
     private String normalizeKey(String key) {
@@ -71,8 +75,7 @@ public class TransactionService {
         if (key != null) {
             var existing = transactionRepository.findByAccount_IdAndIdempotencyKey(account.getId(), key);
             if (existing.isPresent()) {
-                Account refreshed = accountRepository.findById(account.getId()).orElseThrow();
-                return TransactionResponse.from(existing.get(), refreshed);
+                return TransactionResponse.from(existing.get()); // <- no ocupás Account
             }
         }
 
@@ -80,8 +83,11 @@ public class TransactionService {
         long amount = req.amountCents();
 
         if (balance < amount) {
-            throw new InsufficientFundsException(account.getBalanceCents(), req.amountCents());
+            throw new InsufficientFundsException(balance, amount);
         }
+
+        long newBalance = balance - amount;
+        account.setBalanceCents(newBalance);
 
         Transaction tx = new Transaction(
                 account,
@@ -90,10 +96,19 @@ public class TransactionService {
                 key,
                 req.description());
 
-        account.setBalanceCents(balance - amount);
+        tx.setBalanceAfterCents(newBalance);
 
         transactionRepository.save(tx);
+        accountRepository.save(account);
 
-        return TransactionResponse.from(tx, account);
+        return TransactionResponse.from(tx);
+    }
+
+    public Page<TransactionResponse> listByExternalId(String externalId, Pageable pageable) {
+        var account = accountRepository.findByExternalId(externalId)
+                .orElseThrow(() -> new AccountNotFoundException(externalId));
+
+        return transactionRepository.findByAccount_ExternalId(externalId, pageable)
+                .map(tx -> TransactionResponse.from(tx));
     }
 }

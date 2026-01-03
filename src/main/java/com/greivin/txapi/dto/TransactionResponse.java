@@ -1,6 +1,5 @@
 package com.greivin.txapi.dto;
 
-import com.greivin.txapi.domain.Account;
 import com.greivin.txapi.domain.Transaction;
 
 public record TransactionResponse(
@@ -10,17 +9,15 @@ public record TransactionResponse(
         long amountCents,
         long balanceCents,
         String idempotencyKey,
-        String description
-) {
-    public static TransactionResponse from(Transaction tx, Account account) {
+        String description) {
+    public static TransactionResponse from(Transaction tx) {
         return new TransactionResponse(
                 tx.getId().toString(),
-                account.getExternalId(),
+                tx.getAccount().getExternalId(),
                 tx.getType().name(),
                 tx.getAmountCents(),
-                account.getBalanceCents(),
+                tx.getBalanceAfterCents(),
                 tx.getIdempotencyKey(),
-                tx.getDescription()
-        );
+                tx.getDescription());
     }
 }

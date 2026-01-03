@@ -40,6 +40,9 @@ public class Transaction {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @Column(name = "balance_after_cents", nullable = false)
+    private long balanceAfterCents;
+
     protected Transaction() {
     }
 
@@ -54,5 +57,9 @@ public class Transaction {
         this.amountCents = amountCents;
         this.idempotencyKey = idempotencyKey;
         this.description = description;
+    }
+
+    public void setBalanceAfterCents(long balanceAfterCents) {
+        this.balanceAfterCents = balanceAfterCents;
     }
 }

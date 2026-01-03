@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -182,5 +183,65 @@ class AccountFlowITTest extends AbstractIntegrationTest {
                                 .andExpect(status().isConflict())
                                 .andExpect(jsonPath("$.code").value("INSUFFICIENT_FUNDS"))
                                 .andExpect(jsonPath("$.message").isNotEmpty());
+        }
+
+        @Test
+        void listTransactions_paged_sortedDesc() throws Exception {
+                String t = token();
+
+                // 1) Create account
+                var createReq = new CreateAccountRequest("Greivin Arce");
+
+                String accountResponse = mvc.perform(auth(post("/accounts"), t)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(om.writeValueAsString(createReq)))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                String externalId = om.readTree(accountResponse).get("externalId").asText();
+                assertThat(externalId).isNotBlank();
+
+                // 2) Deposit 1000
+                var dep1 = new TransactionRequest(1000L, "dep-a", "deposit a");
+                mvc.perform(auth(post("/accounts/{externalId}/deposit", externalId), t)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(om.writeValueAsString(dep1)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.amountCents").value(1000));
+
+                // 3) Deposit 2000
+                var dep2 = new TransactionRequest(2000L, "dep-b", "deposit b");
+                mvc.perform(auth(post("/accounts/{externalId}/deposit", externalId), t)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(om.writeValueAsString(dep2)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.amountCents").value(2000));
+
+                // 4) List transactions (page/sort)
+                mvc.perform(auth(get("/accounts/{externalId}/transactions", externalId)
+                                .param("page", "0")
+                                .param("size", "20")
+                                .param("sort", "createdAt,desc"), t))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(2))
+                                .andExpect(jsonPath("$.content.length()").value(2))
+                                .andExpect(jsonPath("$.content[0].externalId").value(externalId))
+                                .andExpect(jsonPath("$.content[1].externalId").value(externalId))
+                                .andExpect(jsonPath("$.content[0].amountCents").value(2000))
+                                .andExpect(jsonPath("$.content[1].amountCents").value(1000));
+        }
+
+        @Test
+        void listTransactions_nonExistingAccount_returns404() throws Exception {
+                String t = token();
+
+                mvc.perform(auth(get("/accounts/{externalId}/transactions", "does-not-exist")
+                                .param("page", "0")
+                                .param("size", "20")
+                                .param("sort", "createdAt,desc"), t))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
         }
 }

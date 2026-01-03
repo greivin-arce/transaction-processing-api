@@ -8,15 +8,13 @@ services:
       POSTGRES_DB: transaction_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      TXAPI_JWT_SECRET: ${TXAPI_JWT_SECRET}
+      TXAPI_JWT_ISSUER: ${TXAPI_JWT_ISSUER:-txapi}
+      TXAPI_JWT_TTL_MINUTES: ${TXAPI_JWT_TTL_MINUTES:-60}
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-environment:
-  TXAPI_JWT_SECRET: ${TXAPI_JWT_SECRET}
-  TXAPI_JWT_ISSUER: ${TXAPI_JWT_ISSUER:-txapi}
-  TXAPI_JWT_TTL_MINUTES: ${TXAPI_JWT_TTL_MINUTES:-60}
 
 volumes:
   pgdata:

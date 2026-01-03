@@ -4,6 +4,8 @@ import com.greivin.txapi.dto.TransactionRequest;
 import com.greivin.txapi.dto.TransactionResponse;
 import com.greivin.txapi.service.TransactionService;
 import jakarta.validation.Valid;
+
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,8 +23,7 @@ public class TransactionController {
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse deposit(
             @PathVariable String externalId,
-            @Valid @RequestBody TransactionRequest req
-    ) {
+            @Valid @RequestBody TransactionRequest req) {
         return service.deposit(externalId, req);
     }
 
@@ -30,9 +31,15 @@ public class TransactionController {
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse withdraw(
             @PathVariable String externalId,
-            @Valid @RequestBody TransactionRequest req
-    ) {
+            @Valid @RequestBody TransactionRequest req) {
         return service.withdraw(externalId, req);
     }
-    
+
+    @GetMapping("/transactions")
+    public Page<TransactionResponse> list(
+            @PathVariable String externalId,
+            @org.springframework.data.web.PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) org.springframework.data.domain.Pageable pageable) {
+        return service.listByExternalId(externalId, pageable);
+    }
+
 }
