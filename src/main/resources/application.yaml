@@ -23,3 +23,9 @@ management:
     web:
       exposure:
         include: health,info
+
+security:
+  jwt:
+    secret: ${TXAPI_JWT_SECRET:CHANGE_ME_DEV_ONLY_SUPER_LONG_RANDOM_SECRET_AT_LEAST_32_CHARS}
+    issuer: ${TXAPI_JWT_ISSUER:txapi}
+    ttl-minutes: ${TXAPI_JWT_TTL_MINUTES:60}
