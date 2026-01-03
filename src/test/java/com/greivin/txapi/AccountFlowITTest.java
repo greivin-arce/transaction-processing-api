@@ -10,9 +10,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -24,16 +25,48 @@ class AccountFlowITTest extends AbstractIntegrationTest {
         @Autowired
         ObjectMapper om;
 
+        private String token() throws Exception {
+                String body = """
+                                    {"username":"admin","password":"admin"}
+                                """;
+
+                String res = mvc.perform(post("/auth/token")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                                .andExpect(status().isOk())
+                                // Cambiá "$.token" si tu response usa "$.accessToken"
+                                .andExpect(jsonPath("$.token").isNotEmpty())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                return om.readTree(res).get("token").asText();
+        }
+
+        private MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder req, String token) {
+                return req.header("Authorization", "Bearer " + token);
+        }
+
+        @Test
+        void createAccount_withoutToken_returns401() throws Exception {
+                var createReq = new CreateAccountRequest("Greivin Arce");
+
+                mvc.perform(post("/accounts")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(om.writeValueAsString(createReq)))
+                                .andExpect(status().isUnauthorized());
+        }
+
         @Test
         void createAccount_thenDeposit_thenWithdraw() throws Exception {
+                String t = token();
+
                 // 1) Create account
                 var createReq = new CreateAccountRequest("Greivin Arce");
 
-                String createJson = om.writeValueAsString(createReq);
-
-                String accountResponse = mvc.perform(post("/accounts")
+                String accountResponse = mvc.perform(auth(post("/accounts"), t)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(createJson))
+                                .content(om.writeValueAsString(createReq)))
                                 .andExpect(status().isCreated())
                                 .andExpect(jsonPath("$.externalId").isNotEmpty())
                                 .andExpect(jsonPath("$.balanceCents").value(0))
@@ -46,7 +79,8 @@ class AccountFlowITTest extends AbstractIntegrationTest {
 
                 // 2) Deposit 5000
                 var depReq = new TransactionRequest(5000L, "dep-001", "first deposit");
-                mvc.perform(post("/accounts/{externalId}/deposit", externalId)
+
+                mvc.perform(auth(post("/accounts/{externalId}/deposit", externalId), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(depReq)))
                                 .andExpect(status().isCreated())
@@ -55,7 +89,8 @@ class AccountFlowITTest extends AbstractIntegrationTest {
 
                 // 3) Withdraw 2000
                 var wReq = new TransactionRequest(2000L, "wd-001", "withdraw");
-                mvc.perform(post("/accounts/{externalId}/withdraw", externalId)
+
+                mvc.perform(auth(post("/accounts/{externalId}/withdraw", externalId), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(wReq)))
                                 .andExpect(status().isCreated())
@@ -65,26 +100,32 @@ class AccountFlowITTest extends AbstractIntegrationTest {
 
         @Test
         void deposit_isIdempotent_whenSameKey() throws Exception {
+                String t = token();
+
                 // Create account
                 var createReq = new CreateAccountRequest("Greivin Arce");
-                String accountResponse = mvc.perform(post("/accounts")
+
+                String accountResponse = mvc.perform(auth(post("/accounts"), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(createReq)))
                                 .andExpect(status().isCreated())
-                                .andReturn().getResponse().getContentAsString();
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
 
                 String externalId = om.readTree(accountResponse).get("externalId").asText();
+                assertThat(externalId).isNotBlank();
 
                 // Same deposit twice with same key
                 var depReq = new TransactionRequest(5000L, "dep-777", "idempotent");
 
-                String r1 = mvc.perform(post("/accounts/{externalId}/deposit", externalId)
+                String r1 = mvc.perform(auth(post("/accounts/{externalId}/deposit", externalId), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(depReq)))
                                 .andExpect(status().isCreated())
                                 .andReturn().getResponse().getContentAsString();
 
-                String r2 = mvc.perform(post("/accounts/{externalId}/deposit", externalId)
+                String r2 = mvc.perform(auth(post("/accounts/{externalId}/deposit", externalId), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(depReq)))
                                 .andExpect(status().isCreated())
@@ -103,9 +144,11 @@ class AccountFlowITTest extends AbstractIntegrationTest {
 
         @Test
         void deposit_nonExistingAccount_returns404() throws Exception {
+                String t = token();
+
                 var depReq = new TransactionRequest(5000L, "dep-404", "no account");
 
-                mvc.perform(post("/accounts/{externalId}/deposit", "does-not-exist")
+                mvc.perform(auth(post("/accounts/{externalId}/deposit", "does-not-exist"), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(depReq)))
                                 .andExpect(status().isNotFound())
@@ -114,9 +157,12 @@ class AccountFlowITTest extends AbstractIntegrationTest {
 
         @Test
         void withdraw_insufficientFunds_returns409() throws Exception {
+                String t = token();
+
                 // 1) Create account (balance = 0)
                 var createReq = new CreateAccountRequest("Greivin Arce");
-                String accountResponse = mvc.perform(post("/accounts")
+
+                String accountResponse = mvc.perform(auth(post("/accounts"), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(createReq)))
                                 .andExpect(status().isCreated())
@@ -130,7 +176,7 @@ class AccountFlowITTest extends AbstractIntegrationTest {
                 // 2) Try to withdraw without funds
                 var wReq = new TransactionRequest(1000L, "wd-insufficient-001", "attempt withdraw");
 
-                mvc.perform(post("/accounts/{externalId}/withdraw", externalId)
+                mvc.perform(auth(post("/accounts/{externalId}/withdraw", externalId), t)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(om.writeValueAsString(wReq)))
                                 .andExpect(status().isConflict())
