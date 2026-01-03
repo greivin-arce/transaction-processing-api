@@ -8,6 +8,8 @@ import com.greivin.txapi.dto.TransactionResponse;
 import com.greivin.txapi.repository.AccountRepository;
 import com.greivin.txapi.repository.TransactionRepository;
 import com.greivin.txapi.exception.AccountNotFoundException;
+import com.greivin.txapi.exception.InsufficientFundsException;
+
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -69,25 +71,28 @@ public class TransactionService {
         if (key != null) {
             var existing = transactionRepository.findByAccount_IdAndIdempotencyKey(account.getId(), key);
             if (existing.isPresent()) {
-                return TransactionResponse.from(existing.get(), account);
+                Account refreshed = accountRepository.findById(account.getId()).orElseThrow();
+                return TransactionResponse.from(existing.get(), refreshed);
             }
         }
 
-        if (account.getBalanceCents() < req.amountCents()) {
-            throw new IllegalArgumentException("Insufficient funds");
+        long balance = account.getBalanceCents();
+        long amount = req.amountCents();
+
+        if (balance < amount) {
+            throw new InsufficientFundsException(account.getBalanceCents(), req.amountCents());
         }
 
         Transaction tx = new Transaction(
                 account,
                 TransactionType.WITHDRAW,
-                req.amountCents(),
+                amount,
                 key,
                 req.description());
 
-        account.setBalanceCents(account.getBalanceCents() - req.amountCents());
+        account.setBalanceCents(balance - amount);
 
         transactionRepository.save(tx);
-        accountRepository.save(account);
 
         return TransactionResponse.from(tx, account);
     }
