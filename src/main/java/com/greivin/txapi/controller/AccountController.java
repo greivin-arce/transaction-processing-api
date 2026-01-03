@@ -22,4 +22,9 @@ public class AccountController {
     public AccountResponse create(@Valid @RequestBody CreateAccountRequest req) {
         return service.create(req);
     }
+
+    @GetMapping("/{externalId}")
+    public AccountResponse getByExternalId(@PathVariable String externalId) {
+        return service.getByExternalId(externalId);
+    }
 }

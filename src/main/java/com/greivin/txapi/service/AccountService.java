@@ -23,14 +23,13 @@ public class AccountService {
         acc.setOwnerName(req.ownerName());
 
         Account saved = repository.save(acc);
+        return AccountResponse.from(saved);
+    }
 
-        return new AccountResponse(
-                saved.getId(),
-                saved.getExternalId(),
-                saved.getOwnerName(),
-                saved.getCurrency(),
-                saved.getBalanceCents(),
-                saved.getStatus()
-        );
+    public AccountResponse getByExternalId(String externalId) {
+        Account account = repository.findByExternalId(externalId)
+                .orElseThrow(() -> new AccountNotFoundException(externalId));
+
+        return AccountResponse.from(account);
     }
 }
