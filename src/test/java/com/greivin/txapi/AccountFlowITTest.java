@@ -244,4 +244,41 @@ class AccountFlowITTest extends AbstractIntegrationTest {
                                 .andExpect(status().isNotFound())
                                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
         }
+
+        @Test
+        void balanceHistory_returnsBalances_sortedDesc() throws Exception {
+                String t = token();
+
+                // create account
+                var createReq = new CreateAccountRequest("Greivin Arce");
+                String accountResponse = mvc.perform(auth(post("/accounts"), t)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(om.writeValueAsString(createReq)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
+
+                String externalId = om.readTree(accountResponse).get("externalId").asText();
+
+                // deposit 5000 => balanceAfter 5000
+                var dep = new TransactionRequest(5000L, "dep-balhist-1", "deposit");
+                mvc.perform(auth(post("/accounts/{externalId}/deposit", externalId), t)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(om.writeValueAsString(dep)))
+                                .andExpect(status().isCreated());
+
+                // withdraw 2000 => balanceAfter 3000
+                var wd = new TransactionRequest(2000L, "wd-balhist-1", "withdraw");
+                mvc.perform(auth(post("/accounts/{externalId}/withdraw", externalId), t)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(om.writeValueAsString(wd)))
+                                .andExpect(status().isCreated());
+
+                // balance history sorted desc: [3000, 5000]
+                mvc.perform(auth(get("/accounts/{externalId}/balance-history?size=20&sort=createdAt,desc", externalId),
+                                t))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content.length()").value(2))
+                                .andExpect(jsonPath("$.content[0].balanceAfterCents").value(3000))
+                                .andExpect(jsonPath("$.content[1].balanceAfterCents").value(5000));
+        }
 }

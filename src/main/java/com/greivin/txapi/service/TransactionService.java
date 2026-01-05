@@ -3,6 +3,7 @@ package com.greivin.txapi.service;
 import com.greivin.txapi.domain.Account;
 import com.greivin.txapi.domain.Transaction;
 import com.greivin.txapi.domain.enums.TransactionType;
+import com.greivin.txapi.dto.BalanceHistoryItem;
 import com.greivin.txapi.dto.TransactionRequest;
 import com.greivin.txapi.dto.TransactionResponse;
 import com.greivin.txapi.repository.AccountRepository;
@@ -110,5 +111,12 @@ public class TransactionService {
 
         return transactionRepository.findByAccount_ExternalId(externalId, pageable)
                 .map(tx -> TransactionResponse.from(tx));
+    }
+
+    public Page<BalanceHistoryItem> balanceHistory(String externalId, Pageable pageable) {
+        accountRepository.findByExternalId(externalId)
+                .orElseThrow(() -> new AccountNotFoundException(externalId));
+
+        return transactionRepository.balanceHistoryByAccountExternalId(externalId, pageable);
     }
 }
