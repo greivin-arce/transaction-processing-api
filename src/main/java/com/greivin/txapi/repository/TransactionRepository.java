@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
+    @EntityGraph(attributePaths = "account")
     Optional<Transaction> findByAccount_IdAndIdempotencyKey(UUID accountId, String idempotencyKey);
 
     @EntityGraph(attributePaths = "account")

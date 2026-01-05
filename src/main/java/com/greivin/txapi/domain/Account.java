@@ -38,6 +38,10 @@ public class Account {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 
+    @Version
+    @Column(nullable = false)
+    private long version;
+
     @PreUpdate
     void onUpdate() {
         this.updatedAt = OffsetDateTime.now();

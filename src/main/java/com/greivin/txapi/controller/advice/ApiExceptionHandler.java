@@ -46,4 +46,11 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiError.of("INSUFFICIENT_FUNDS", ex.getMessage()));
     }
+
+    @ExceptionHandler({ org.springframework.orm.ObjectOptimisticLockingFailureException.class,
+            jakarta.persistence.OptimisticLockException.class })
+    public ResponseEntity<ApiError> handleOptimisticLock(Exception ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of("CONCURRENT_UPDATE", "Account was updated concurrently. Retry the request."));
+    }
 }

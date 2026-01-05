@@ -52,8 +52,8 @@ public class TransactionService {
                 req.description());
         tx.setBalanceAfterCents(newBalance);
 
+        accountRepository.saveAndFlush(account);
         transactionRepository.save(tx);
-        accountRepository.save(account);
 
         return TransactionResponse.from(tx);
     }
@@ -98,8 +98,8 @@ public class TransactionService {
 
         tx.setBalanceAfterCents(newBalance);
 
+        accountRepository.saveAndFlush(account);
         transactionRepository.save(tx);
-        accountRepository.save(account);
 
         return TransactionResponse.from(tx);
     }
